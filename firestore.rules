@@ -1,0 +1,201 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isNumberInRange(val, minVal, maxVal) {
+      return (val is int || val is float) && val >= minVal && val <= maxVal;
+    }
+
+    function isValidDiscoveredNetwork(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.bssid is string &&
+             data.bssid.size() >= 6 && data.bssid.size() <= 32 &&
+             data.ssid is string &&
+             data.ssid.size() <= 100 &&
+             data.capabilities is string &&
+             data.capabilities.size() <= 300 &&
+             data.securityType is string &&
+             data.securityType in ['OPEN', 'WEP', 'WPA', 'WPA2', 'WPA3', 'OWE'] &&
+             data.frequencyMhz is int &&
+             data.frequencyMhz >= 2400 && data.frequencyMhz <= 7200 &&
+             data.band is string &&
+             data.band in ['2.4 GHz', '5 GHz', '6 GHz'] &&
+             data.channel is int &&
+             data.channel >= 1 && data.channel <= 233 &&
+             data.channelWidthMhz is int &&
+             data.channelWidthMhz in [20, 40, 80, 160, 320] &&
+             data.currentRssi is int &&
+             data.currentRssi >= -120 && data.currentRssi <= 0 &&
+             data.bestRssi is int &&
+             data.bestRssi >= -120 && data.bestRssi <= 0 &&
+             isNumberInRange(data.bestLat, -90.0, 90.0) &&
+             isNumberInRange(data.bestLon, -180.0, 180.0) &&
+             isNumberInRange(data.bestAlt, -1000.0, 50000.0) &&
+             isNumberInRange(data.accuracyMeters, 0.0, 10000.0) &&
+             data.vendor is string &&
+             data.vendor.size() <= 100 &&
+             data.seenCount is int &&
+             data.seenCount >= 1 &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 500)) &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    function isValidWardriveSession(data) {
+      return data.userId is string &&
+             data.userId == request.auth.uid &&
+             data.userId.size() >= 1 && data.userId.size() <= 128 &&
+             data.title is string &&
+             data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.durationSeconds is int &&
+             data.durationSeconds >= 0 && data.durationSeconds <= 604800 &&
+             isNumberInRange(data.distanceMeters, 0.0, 10000000.0) &&
+             data.totalNetworks is int &&
+             data.totalNetworks >= 0 &&
+             data.openNetworks is int &&
+             data.openNetworks >= 0 &&
+             data.band24Count is int &&
+             data.band24Count >= 0 &&
+             data.band5Count is int &&
+             data.band5Count >= 0 &&
+             data.band6Count is int &&
+             data.band6Count >= 0 &&
+             isNumberInRange(data.startLat, -90.0, 90.0) &&
+             isNumberInRange(data.startLon, -180.0, 180.0) &&
+             isNumberInRange(data.endLat, -90.0, 90.0) &&
+             isNumberInRange(data.endLon, -180.0, 180.0) &&
+             data.trackPointsSummary is string &&
+             data.trackPointsSummary.size() <= 50000 &&
+             (!('notes' in data) || data.notes == null || (data.notes is string && data.notes.size() <= 500)) &&
+             data.createdAt is timestamp &&
+             data.createdAt <= request.time &&
+             data.updatedAt is timestamp &&
+             data.updatedAt <= request.time;
+    }
+
+    match /users/{userId}/networks/{networkId} {
+      allow get: if isSignedIn() &&
+                    request.auth.uid == userId &&
+                    isValidId(userId) &&
+                    isValidId(networkId) &&
+                    (resource == null || existing().userId == request.auth.uid);
+
+      allow list: if isSignedIn() &&
+                     request.auth.uid == userId &&
+                     existing().userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(userId) &&
+                       isValidId(networkId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'bssid', 'ssid', 'capabilities', 'securityType',
+                         'frequencyMhz', 'band', 'channel', 'channelWidthMhz',
+                         'currentRssi', 'bestRssi', 'bestLat', 'bestLon', 'bestAlt',
+                         'accuracyMeters', 'vendor', 'seenCount', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'bssid', 'ssid', 'capabilities', 'securityType',
+                         'frequencyMhz', 'band', 'channel', 'channelWidthMhz',
+                         'currentRssi', 'bestRssi', 'bestLat', 'bestLon', 'bestAlt',
+                         'accuracyMeters', 'vendor', 'seenCount', 'notes', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidDiscoveredNetwork(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidDiscoveredNetwork(incoming()) &&
+                       request.auth.uid == userId &&
+                       isValidId(userId) &&
+                       isValidId(networkId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().bssid == existing().bssid &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'ssid', 'capabilities', 'securityType', 'frequencyMhz',
+                         'band', 'channel', 'channelWidthMhz', 'currentRssi',
+                         'bestRssi', 'bestLat', 'bestLon', 'bestAlt',
+                         'accuracyMeters', 'vendor', 'seenCount', 'notes', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(userId) &&
+                       isValidId(networkId) &&
+                       existing().userId == request.auth.uid;
+    }
+
+    match /users/{userId}/sessions/{sessionId} {
+      allow get: if isSignedIn() &&
+                    request.auth.uid == userId &&
+                    isValidId(userId) &&
+                    isValidId(sessionId) &&
+                    (resource == null || existing().userId == request.auth.uid);
+
+      allow list: if isSignedIn() &&
+                     request.auth.uid == userId &&
+                     existing().userId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(userId) &&
+                       isValidId(sessionId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'title', 'durationSeconds', 'distanceMeters',
+                         'totalNetworks', 'openNetworks', 'band24Count', 'band5Count',
+                         'band6Count', 'startLat', 'startLon', 'endLat', 'endLon',
+                         'trackPointsSummary', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'title', 'durationSeconds', 'distanceMeters',
+                         'totalNetworks', 'openNetworks', 'band24Count', 'band5Count',
+                         'band6Count', 'startLat', 'startLon', 'endLat', 'endLon',
+                         'trackPointsSummary', 'notes', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidWardriveSession(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidWardriveSession(incoming()) &&
+                       request.auth.uid == userId &&
+                       isValidId(userId) &&
+                       isValidId(sessionId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'title', 'durationSeconds', 'distanceMeters',
+                         'totalNetworks', 'openNetworks', 'band24Count', 'band5Count',
+                         'band6Count', 'startLat', 'startLon', 'endLat', 'endLon',
+                         'trackPointsSummary', 'notes', 'updatedAt'
+                       ]);
+
+      allow delete: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       isValidId(userId) &&
+                       isValidId(sessionId) &&
+                       existing().userId == request.auth.uid;
+    }
+  }
+}

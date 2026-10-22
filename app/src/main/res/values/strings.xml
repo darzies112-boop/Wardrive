@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">AetherPulse</string>
+    <string name="auth_title">AETHERPULSE RF TELEMETRY</string>
+    <string name="auth_subtitle">Tactical Wi-Fi Wardriving, GPS Signal Mapping, Spectrum Congestion Analysis &amp; Cloud Sync</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="nav_radar_map">Map / Radar</string>
+    <string name="nav_networks">Networks</string>
+    <string name="nav_spectrum">Spectrum</string>
+    <string name="nav_sessions">Sessions</string>
+    <string name="mode_gps_grid">GPS Grid</string>
+    <string name="mode_rf_radar">RF Radar</string>
+    <string name="mode_split_hud">Split HUD</string>
+    <string name="start_wardrive">Start Wardrive</string>
+    <string name="pause_wardrive">Pause</string>
+    <string name="resume_wardrive">Resume</string>
+    <string name="finish_sync_cloud">Save &amp; Sync</string>
+    <string name="export_wigle_csv">Export WiGLE CSV</string>
+    <string name="export_kml">Export Google Earth KML</string>
+    <string name="field_sim_mode">Field Sim</string>
+    <string name="grant_permissions">Grant GPS &amp; Wi-Fi Permissions</string>
+    <string name="permissions_rationale">Location &amp; Wi-Fi permissions are required by Android to read 802.11 BSSID beacons and correlate RSSI signal strength with GPS coordinates.</string>
+</resources>

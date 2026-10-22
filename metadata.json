@@ -1,0 +1,6 @@
+{
+  "name": "AetherPulse",
+  "description": "Tactical Wi-Fi wardriving and RF signal telemetry mapper with GPS coordinate grid, polar radar, channel congestion analyzer, security auditing, WiGLE/KML export, and Cloud Firestore sync.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

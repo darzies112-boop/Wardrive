@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+    <path android:pathData="M0,0h320v180h-320z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:startX="0"
+                android:startY="0"
+                android:endX="320"
+                android:endY="180"
+                android:type="linear">
+                <item android:offset="0.0" android:color="#080C10" />
+                <item android:offset="0.5" android:color="#0E1724" />
+                <item android:offset="1.0" android:color="#080C10" />
+            </gradient>
+        </aapt:attr>
+    </path>
+    <!-- Tactical Grid Lines -->
+    <path
+        android:strokeColor="#1E293B"
+        android:strokeWidth="1"
+        android:pathData="M0,30L320,30M0,60L320,60M0,90L320,90M0,120L320,120M0,150L320,150M40,0L40,180M80,0L80,180M120,0L120,180M160,0L160,180M200,0L200,180M240,0L240,180M280,0L280,180" />
+    <!-- Concentric Radar Circles -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#3300F5A0"
+        android:strokeWidth="1.5"
+        android:pathData="M160,20A70,70 0 1,1 159.9,20Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#6600F5A0"
+        android:strokeWidth="1.5"
+        android:pathData="M160,45A45,45 0 1,1 159.9,45Z" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#9900D2FF"
+        android:strokeWidth="1.5"
+        android:pathData="M160,70A20,20 0 1,1 159.9,70Z" />
+    <!-- Radar Sweep Sector -->
+    <path
+        android:fillColor="#3300F5A0"
+        android:pathData="M160,90L160,20A70,70 0 0,1 220,55Z" />
+    <!-- Spectrum Waveform Curve -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#00D2FF"
+        android:strokeWidth="2.5"
+        android:pathData="M10,145 Q40,140 60,105 T110,130 T160,65 T210,125 T260,85 T310,140" />
+    <!-- AP Signal Nodes -->
+    <path
+        android:fillColor="#00F5A0"
+        android:pathData="M160,85A5,5 0 1,1 159.9,85ZM188,52A4,4 0 1,1 187.9,52ZM122,68A4,4 0 1,1 121.9,68Z" />
+    <path
+        android:fillColor="#FF3B5C"
+        android:pathData="M210,105A4.5,4.5 0 1,1 209.9,105Z" />
+    <path
+        android:fillColor="#FFB800"
+        android:pathData="M135,118A4,4 0 1,1 134.9,118Z" />
+</vector>

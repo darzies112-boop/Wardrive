@@ -1,0 +1,226 @@
+{
+  "entities": {
+    "DiscoveredNetwork": {
+      "title": "DiscoveredNetwork",
+      "description": "A discovered Wi-Fi access point logged with peak GPS coordinates and RF signal telemetry.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "bssid": {
+          "type": "string",
+          "description": "Hardware MAC address of the access point."
+        },
+        "ssid": {
+          "type": "string",
+          "description": "Broadcast SSID name or <Hidden SSID>."
+        },
+        "capabilities": {
+          "type": "string",
+          "description": "Raw 802.11 capability flags."
+        },
+        "securityType": {
+          "type": "string",
+          "enum": ["OPEN", "WEP", "WPA", "WPA2", "WPA3", "OWE"],
+          "description": "Normalized encryption security classification."
+        },
+        "frequencyMhz": {
+          "type": "integer",
+          "description": "Channel center frequency in MHz."
+        },
+        "band": {
+          "type": "string",
+          "enum": ["2.4 GHz", "5 GHz", "6 GHz"],
+          "description": "Operating frequency band."
+        },
+        "channel": {
+          "type": "integer",
+          "description": "802.11 channel number."
+        },
+        "channelWidthMhz": {
+          "type": "integer",
+          "enum": [20, 40, 80, 160, 320],
+          "description": "Channel bandwidth in MHz."
+        },
+        "currentRssi": {
+          "type": "integer",
+          "description": "Most recent RSSI reading in dBm."
+        },
+        "bestRssi": {
+          "type": "integer",
+          "description": "Strongest recorded RSSI reading in dBm."
+        },
+        "bestLat": {
+          "type": "number",
+          "description": "Latitude at strongest signal sighting."
+        },
+        "bestLon": {
+          "type": "number",
+          "description": "Longitude at strongest signal sighting."
+        },
+        "bestAlt": {
+          "type": "number",
+          "description": "Altitude in meters at strongest signal sighting."
+        },
+        "accuracyMeters": {
+          "type": "number",
+          "description": "GPS horizontal accuracy in meters."
+        },
+        "vendor": {
+          "type": "string",
+          "description": "Resolved OUI hardware manufacturer."
+        },
+        "seenCount": {
+          "type": "integer",
+          "description": "Number of times this BSSID was observed."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional field notes or tags for this access point."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "First seen server timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last seen server timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "bssid",
+        "ssid",
+        "capabilities",
+        "securityType",
+        "frequencyMhz",
+        "band",
+        "channel",
+        "channelWidthMhz",
+        "currentRssi",
+        "bestRssi",
+        "bestLat",
+        "bestLon",
+        "bestAlt",
+        "accuracyMeters",
+        "vendor",
+        "seenCount",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WardriveSession": {
+      "title": "WardriveSession",
+      "description": "A recorded wardriving session with GPS track breadcrumbs, distance traveled, and network statistics.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner Firebase Auth UID."
+        },
+        "title": {
+          "type": "string",
+          "description": "Human-readable session name."
+        },
+        "durationSeconds": {
+          "type": "integer",
+          "description": "Total elapsed recording time in seconds."
+        },
+        "distanceMeters": {
+          "type": "number",
+          "description": "Total GPS path distance in meters."
+        },
+        "totalNetworks": {
+          "type": "integer",
+          "description": "Total unique networks discovered in this session."
+        },
+        "openNetworks": {
+          "type": "integer",
+          "description": "Count of open or WEP networks discovered."
+        },
+        "band24Count": {
+          "type": "integer",
+          "description": "Count of 2.4 GHz networks discovered."
+        },
+        "band5Count": {
+          "type": "integer",
+          "description": "Count of 5 GHz networks discovered."
+        },
+        "band6Count": {
+          "type": "integer",
+          "description": "Count of 6 GHz networks discovered."
+        },
+        "startLat": {
+          "type": "number",
+          "description": "Starting latitude."
+        },
+        "startLon": {
+          "type": "number",
+          "description": "Starting longitude."
+        },
+        "endLat": {
+          "type": "number",
+          "description": "Ending latitude."
+        },
+        "endLon": {
+          "type": "number",
+          "description": "Ending longitude."
+        },
+        "trackPointsSummary": {
+          "type": "string",
+          "description": "Serialized GPS breadcrumb coordinates (lat,lon,alt,rssi;...)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Optional field notes for the session."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session creation server timestamp (FieldValue.serverTimestamp())."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Session update server timestamp (FieldValue.serverTimestamp())."
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "durationSeconds",
+        "distanceMeters",
+        "totalNetworks",
+        "openNetworks",
+        "band24Count",
+        "band5Count",
+        "band6Count",
+        "startLat",
+        "startLon",
+        "endLat",
+        "endLon",
+        "trackPointsSummary",
+        "createdAt",
+        "updatedAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/networks/{networkId}": {
+      "schema": {
+        "$ref": "#/entities/DiscoveredNetwork"
+      },
+      "description": "Per-user catalog of unique discovered Wi-Fi networks and peak GPS/RSSI telemetry."
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": {
+        "$ref": "#/entities/WardriveSession"
+      },
+      "description": "Per-user recorded wardriving sessions with GPS track breadcrumbs and summary statistics."
+    }
+  }
+}
