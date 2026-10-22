@@ -94,6 +94,27 @@ import com.example.viewmodel.WardriveViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.firestore.FirebaseFirestore
+import android.content.ClipData
+import android.content.ClipboardManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.TextButton
+import com.example.data.model.DiscoveredNetwork
+import com.example.data.model.TrackBreadcrumb
+import com.example.data.model.UiState
+import com.example.export.WardriveExporter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -157,6 +178,9 @@ fun WardriveMainScreen(currentUserId: String) {
   val cloudNetworksState by viewModel.cloudNetworksState.collectAsStateWithLifecycle()
   val cloudSessionsState by viewModel.cloudSessionsState.collectAsStateWithLifecycle()
 
+  var showExportModal by remember { mutableStateOf(false) }
+  var initialExportFormatIsKml by remember { mutableStateOf(false) }
+
   // Check & Request Runtime Location + Wi-Fi Permissions
   val requiredPermissions = remember {
     buildList {
@@ -207,6 +231,10 @@ fun WardriveMainScreen(currentUserId: String) {
   val networksList = remember(hudState.liveNetworks) {
     hudState.liveNetworks.values.toList()
   }
+  val cloudNetworks = (cloudNetworksState as? UiState.Success)?.data ?: emptyList()
+  val combinedExportNetworks = remember(networksList, cloudNetworks) {
+    (networksList + cloudNetworks).distinctBy { it.bssid }
+  }
 
   Scaffold(
     modifier = Modifier.fillMaxSize(),
@@ -218,6 +246,10 @@ fun WardriveMainScreen(currentUserId: String) {
         networkCount = networksList.size,
         isFieldSimEnabled = hudState.isFieldSimEnabled,
         onToggleFieldSim = { viewModel.toggleFieldSimMode(!hudState.isFieldSimEnabled) },
+        onOpenExportCenter = {
+          initialExportFormatIsKml = false
+          showExportModal = true
+        },
         onSignOut = {
           signOut(
             context = context,
@@ -451,14 +483,34 @@ fun WardriveMainScreen(currentUserId: String) {
             onStartOrResumeSession = viewModel::startOrResumeSession,
             onPauseSession = viewModel::pauseSession,
             onSaveAndSyncSession = { viewModel.finalizeAndSyncSessionToCloud() },
-            onExportWigleCsv = { nets -> viewModel.exportWigleCsv(context, nets) },
-            onExportKml = { title, nets, pts -> viewModel.exportKml(context, title, nets, pts) },
+            onExportWigleCsv = {
+              initialExportFormatIsKml = false
+              showExportModal = true
+            },
+            onExportKml = { _, _, _ ->
+              initialExportFormatIsKml = true
+              showExportModal = true
+            },
             onDeleteSession = viewModel::deleteCloudSession,
             modifier = Modifier.weight(1f)
           )
         }
       }
     }
+  }
+
+  // Interactive Export & Download Center Dialog (accessible from Top Bar & Sessions Tab)
+  if (showExportModal) {
+    ExportCenterDialog(
+      networks = combinedExportNetworks,
+      breadcrumbs = hudState.trackBreadcrumbs,
+      initialIsKml = initialExportFormatIsKml,
+      onDismiss = { showExportModal = false },
+      onShareWigleCsv = { viewModel.exportWigleCsv(context, combinedExportNetworks) },
+      onShareKml = {
+        viewModel.exportKml(context, "AetherPulse_Wardrive", combinedExportNetworks, hudState.trackBreadcrumbs)
+      }
+    )
   }
 
   // AP Telemetry Inspector Bottom Sheet
@@ -479,6 +531,7 @@ private fun TacticalTopHudBar(
   networkCount: Int,
   isFieldSimEnabled: Boolean,
   onToggleFieldSim: () -> Unit,
+  onOpenExportCenter: () -> Unit,
   onSignOut: () -> Unit
 ) {
   Surface(
@@ -523,6 +576,33 @@ private fun TacticalTopHudBar(
         horizontalArrangement = Arrangement.spacedBy(6.dp)
       ) {
         FilterChip(
+          selected = false,
+          onClick = onOpenExportCenter,
+          leadingIcon = {
+            Icon(
+              imageVector = Icons.Default.Download,
+              contentDescription = "Export CSV or KML",
+              tint = PhosphorEmerald,
+              modifier = Modifier.size(16.dp)
+            )
+          },
+          label = {
+            Text(
+              text = "EXPORT",
+              style = MaterialTheme.typography.labelMedium,
+              color = PhosphorEmerald,
+              fontWeight = FontWeight.Bold
+            )
+          },
+          modifier = Modifier.testTag("top_bar_export_button"),
+          border = FilterChipDefaults.filterChipBorder(
+            enabled = true,
+            selected = false,
+            borderColor = PhosphorEmerald.copy(alpha = 0.6f)
+          )
+        )
+
+        FilterChip(
           selected = isFieldSimEnabled,
           onClick = onToggleFieldSim,
           leadingIcon = {
@@ -561,4 +641,229 @@ private fun TacticalTopHudBar(
       }
     }
   }
+}
+
+@Composable
+private fun ExportCenterDialog(
+  networks: List<DiscoveredNetwork>,
+  breadcrumbs: List<TrackBreadcrumb>,
+  initialIsKml: Boolean,
+  onDismiss: () -> Unit,
+  onShareWigleCsv: () -> Unit,
+  onShareKml: () -> Unit
+) {
+  val context = LocalContext.current
+  var isKmlSelected by remember { mutableStateOf(initialIsKml) }
+  var feedbackMessage by remember { mutableStateOf<String?>(null) }
+
+  val exportedContent = remember(networks, breadcrumbs, isKmlSelected) {
+    if (isKmlSelected) {
+      WardriveExporter.buildKmlDocument("AetherPulse_Wardrive", networks, breadcrumbs)
+    } else {
+      WardriveExporter.buildWigleCsv(networks)
+    }
+  }
+
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    containerColor = TacticalSlate,
+    titleContentColor = PhosphorEmerald,
+    title = {
+      Column {
+        Text(
+          text = "EXPORT & DOWNLOAD TELEMETRY",
+          style = MaterialTheme.typography.titleMedium,
+          color = PhosphorEmerald,
+          fontWeight = FontWeight.Bold
+        )
+        Text(
+          text = "${networks.size} BSSIDs  •  ${breadcrumbs.size} GPS Track Points",
+          style = MaterialTheme.typography.labelSmall,
+          color = TelemetryCyan
+        )
+      }
+    },
+    text = {
+      Column(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxWidth()
+      ) {
+        // Format switcher
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          FilterChip(
+            selected = !isKmlSelected,
+            onClick = {
+              isKmlSelected = false
+              feedbackMessage = null
+            },
+            label = { Text("WiGLE v1.4 CSV") },
+            colors = FilterChipDefaults.filterChipColors(
+              selectedContainerColor = PhosphorEmerald.copy(alpha = 0.2f),
+              selectedLabelColor = PhosphorEmerald
+            )
+          )
+          FilterChip(
+            selected = isKmlSelected,
+            onClick = {
+              isKmlSelected = true
+              feedbackMessage = null
+            },
+            label = { Text("Google Earth KML") },
+            colors = FilterChipDefaults.filterChipColors(
+              selectedContainerColor = TelemetryCyan.copy(alpha = 0.2f),
+              selectedLabelColor = TelemetryCyan
+            )
+          )
+        }
+
+        if (feedbackMessage != null) {
+          Surface(
+            color = PhosphorEmerald.copy(alpha = 0.16f),
+            border = BorderStroke(1.dp, PhosphorEmerald),
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth()
+          ) {
+            Text(
+              text = feedbackMessage!!,
+              style = MaterialTheme.typography.labelMedium,
+              color = PhosphorEmerald,
+              modifier = Modifier.padding(10.dp)
+            )
+          }
+        }
+
+        // Action 1: Save directly to Device Downloads Folder
+        Button(
+          onClick = {
+            val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+            val fileName = if (isKmlSelected) {
+              "aetherpulse_track_$stamp.kml"
+            } else {
+              "aetherpulse_wigle_$stamp.csv"
+            }
+            val mime = if (isKmlSelected) {
+              "application/vnd.google-earth.kml+xml"
+            } else {
+              "text/csv"
+            }
+            val result = WardriveExporter.saveToDownloadsFolder(
+              context = context,
+              fileName = fileName,
+              mimeType = mime,
+              content = exportedContent
+            )
+            feedbackMessage = result.fold(
+              onSuccess = { path -> "Saved directly to device: $path" },
+              onFailure = { err -> "Save error: ${err.localizedMessage}" }
+            )
+          },
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .testTag("dialog_save_downloads_button"),
+          shape = RoundedCornerShape(10.dp),
+          colors = ButtonDefaults.buttonColors(
+            containerColor = PhosphorEmerald,
+            contentColor = ObsidianBg
+          )
+        ) {
+          Icon(imageVector = Icons.Default.Download, contentDescription = null, modifier = Modifier.size(18.dp))
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = if (isKmlSelected) "Download .KML to Device" else "Download .CSV to Device",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.Bold
+          )
+        }
+
+        // Action 2 & 3: Copy to Clipboard + System Share Sheet
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          OutlinedButton(
+            onClick = {
+              val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+              val label = if (isKmlSelected) "AetherPulse KML" else "AetherPulse WiGLE CSV"
+              clipboard?.setPrimaryClip(ClipData.newPlainText(label, exportedContent))
+              feedbackMessage = "Copied ${exportedContent.lines().size} lines to clipboard!"
+            },
+            modifier = Modifier
+              .weight(1f)
+              .height(48.dp)
+              .testTag("dialog_copy_clipboard_button"),
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, TelemetryCyan)
+          ) {
+            Icon(
+              imageVector = Icons.Default.ContentCopy,
+              contentDescription = null,
+              tint = TelemetryCyan,
+              modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+              text = "Copy Text",
+              style = MaterialTheme.typography.labelMedium,
+              color = TelemetryCyan
+            )
+          }
+
+          OutlinedButton(
+            onClick = {
+              if (isKmlSelected) onShareKml() else onShareWigleCsv()
+            },
+            modifier = Modifier
+              .weight(1f)
+              .height(48.dp)
+              .testTag("dialog_share_sheet_button"),
+            shape = RoundedCornerShape(10.dp),
+            border = BorderStroke(1.dp, GridHairline)
+          ) {
+            Icon(
+              imageVector = Icons.Default.Share,
+              contentDescription = null,
+              tint = MaterialTheme.colorScheme.onSurface,
+              modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+              text = "Share Sheet",
+              style = MaterialTheme.typography.labelMedium,
+              color = MaterialTheme.colorScheme.onSurface
+            )
+          }
+        }
+
+        // Live File Preview Box
+        Text(
+          text = "LIVE FILE PREVIEW (${exportedContent.length} bytes):",
+          style = MaterialTheme.typography.labelSmall,
+          color = TextSecondaryHud
+        )
+        Box(
+          modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 100.dp, max = 180.dp)
+            .background(ObsidianBg, RoundedCornerShape(8.dp))
+            .padding(8.dp)
+            .verticalScroll(rememberScrollState())
+        ) {
+          Text(
+            text = exportedContent,
+            style = MaterialTheme.typography.labelSmall,
+            color = PhosphorEmerald
+          )
+        }
+      }
+    },
+    confirmButton = {
+      TextButton(onClick = onDismiss) {
+        Text("Close", color = TelemetryCyan)
+      }
+    }
+  )
 }

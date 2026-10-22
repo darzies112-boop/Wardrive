@@ -135,6 +135,48 @@ object WardriveExporter {
     }
   }
 
+  /**
+   * Saves the exported CSV or KML directly into the public Android Downloads folder
+   * (using MediaStore.Downloads on API 29+ or cache/Downloads fallback) so the user can download
+   * files directly even when no Share Sheet target app is installed.
+   */
+  fun saveToDownloadsFolder(
+    context: Context,
+    fileName: String,
+    mimeType: String,
+    content: String
+  ): Result<String> {
+    return try {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        val resolver = context.contentResolver
+        val values = android.content.ContentValues().apply {
+          put(android.provider.MediaStore.Downloads.DISPLAY_NAME, fileName)
+          put(android.provider.MediaStore.Downloads.MIME_TYPE, mimeType)
+          put(android.provider.MediaStore.Downloads.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS)
+          put(android.provider.MediaStore.Downloads.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+        if (uri != null) {
+          resolver.openOutputStream(uri)?.use { out ->
+            out.write(content.toByteArray(Charsets.UTF_8))
+          }
+          values.clear()
+          values.put(android.provider.MediaStore.Downloads.IS_PENDING, 0)
+          resolver.update(uri, values, null, null)
+          return Result.success("Downloads/$fileName")
+        }
+      }
+      val fallbackDir = File(context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS) ?: context.filesDir, "exports").apply {
+        mkdirs()
+      }
+      val fallbackFile = File(fallbackDir, fileName)
+      fallbackFile.writeText(content)
+      Result.success(fallbackFile.absolutePath)
+    } catch (e: Exception) {
+      Result.failure(e)
+    }
+  }
+
   private fun escapeXml(input: String): String =
     input
       .replace("&", "&amp;")
